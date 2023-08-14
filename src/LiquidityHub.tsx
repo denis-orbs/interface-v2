@@ -235,7 +235,8 @@ async function waitForTx(txHash: string, library: any) {
 
     await delay(1500);
     const tx = await library.getTransaction(txHash);
-    if (tx) {
+    if (tx && tx instanceof Object && tx.blockNumber) {
+      console.log(tx);
       return tx;
     }
   }
