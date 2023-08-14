@@ -55,6 +55,9 @@ export const updateUserSingleHopOnly = createAction<{
 export const updateUserBonusRouter = createAction<{
   userBonusRouterDisabled: boolean;
 }>('user/updateUserBonusRouter');
+export const updateUserLiquidityHub = createAction<{
+  userLiquidityHubDisabled: boolean;
+}>('user/updateUserLiquidityHub');
 export const updateSelectedWallet = createAction<{
   wallet?: ConnectionType;
 }>('user/updateSelectedWallet');

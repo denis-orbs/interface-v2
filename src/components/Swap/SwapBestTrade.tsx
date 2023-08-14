@@ -67,6 +67,7 @@ import callWallchainAPI from 'utils/wallchainService';
 import ParaswapABI from 'constants/abis/ParaSwap_ABI.json';
 import { ONE } from 'v3lib/utils';
 import { SWAP_ROUTER_ADDRESS } from 'constants/v3/addresses';
+import { useLiquidityHubAnalyticsListeners } from 'LiquidityHub';
 
 const SwapBestTrade: React.FC<{
   currencyBgClass?: string;
@@ -114,6 +115,7 @@ const SwapBestTrade: React.FC<{
 
   const { t } = useTranslation();
   const { account, chainId, library } = useActiveWeb3React();
+
   const { independentField, typedValue, recipient } = useSwapState();
   const chainIdToUse = chainId ? chainId : ChainId.MATIC;
   const {
@@ -400,7 +402,10 @@ const SwapBestTrade: React.FC<{
       : undefined;
 
   const handleMaxInput = useCallback(() => {
-    maxAmountInput && onUserInput(Field.INPUT, maxAmountInput.toExact());
+    if (maxAmountInput) {
+      onUserInput(Field.INPUT, maxAmountInput.toExact());
+    }
+
     setSwapType(SwapSide.SELL);
   }, [maxAmountInput, onUserInput]);
 
@@ -640,6 +645,15 @@ const SwapBestTrade: React.FC<{
     txHash: undefined,
   });
 
+  useLiquidityHubAnalyticsListeners(
+    approval,
+    showConfirm,
+    attemptingTxn,
+    currencies[Field.INPUT],
+    currencies[Field.OUTPUT],
+    formattedAmounts[Field.INPUT],
+  );
+
   const handleTypeInput = useCallback(
     (value: string) => {
       onUserInput(Field.INPUT, value);
@@ -699,7 +713,6 @@ const SwapBestTrade: React.FC<{
     if (!paraswapCallback) {
       return;
     }
-
     setSwapState({
       attemptingTxn: true,
       tradeToConfirm,
@@ -752,13 +765,17 @@ const SwapBestTrade: React.FC<{
         }
       })
       .catch((error) => {
+        const liquidityHubError = error.message === t('liquidityHubFailed');
         setSwapState({
           attemptingTxn: false,
           tradeToConfirm,
-          showConfirm,
-          swapErrorMessage: error.message,
+          showConfirm: liquidityHubError ? false : showConfirm,
+          swapErrorMessage: liquidityHubError ? undefined : error.message,
           txHash: undefined,
         });
+      })
+      .finally(() => {
+        setApprovalSubmitted(false);
       });
   }, [
     paraswapCallback,
@@ -770,6 +787,7 @@ const SwapBestTrade: React.FC<{
     account,
     inputCurrency?.symbol,
     outputCurrency?.symbol,
+    t,
   ]);
 
   const paraRate = optimalRate

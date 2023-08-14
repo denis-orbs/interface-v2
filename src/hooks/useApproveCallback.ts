@@ -31,6 +31,11 @@ import {
 } from 'constants/v3/addresses';
 import { OptimalRate } from '@paraswap/sdk';
 import { ONE } from 'v3lib/utils';
+import {
+  liquidityHubAnalytics,
+  PERMIT2_ADDRESS,
+  useIsApprovePermit2,
+} from 'LiquidityHub';
 
 export enum ApprovalState {
   UNKNOWN,
@@ -159,6 +164,10 @@ export function useApproveCallbackV3(
   amountToApprove?: CurrencyAmountV3<Currency>,
   spender?: string,
   isBonusRoute?: boolean,
+  callbacks?: {
+    onApprove?: (spender: string, amount: string) => void;
+    onApproveError?: (error: string) => void;
+  },
 ): [ApprovalState, () => Promise<void>] {
   const { account, chainId } = useActiveWeb3React();
   const token = amountToApprove?.currency?.isToken
@@ -220,6 +229,8 @@ export function useApproveCallbackV3(
     }
 
     let useExact = false;
+    callbacks?.onApprove?.(spender, amountToApprove.toFixed(4));
+
     const estimatedGas = await tokenContract.estimateGas
       .approve(spender, MaxUint256)
       .catch(() => {
@@ -230,7 +241,6 @@ export function useApproveCallbackV3(
           amountToApprove.quotient.toString(),
         );
       });
-
     return tokenContract
       .approve(
         spender,
@@ -248,6 +258,7 @@ export function useApproveCallbackV3(
         });
       })
       .catch((error: Error) => {
+        callbacks?.onApproveError?.(error.message);
         console.debug('Failed to approve token', error);
         // throw error
       });
@@ -260,6 +271,7 @@ export function useApproveCallbackV3(
     addTransaction,
     chainId,
     isBonusRoute,
+    callbacks,
   ]);
 
   return [approvalState, approve];
@@ -294,6 +306,8 @@ export function useApproveCallbackFromBestTrade(
   atMaxAmountInput?: boolean,
 ): [ApprovalState, () => Promise<void>] {
   const { chainId } = useActiveWeb3React();
+  const approvePermit2 = useIsApprovePermit2();
+
   const amountToApprove = useMemo(
     () =>
       optimalRate
@@ -310,11 +324,20 @@ export function useApproveCallbackFromBestTrade(
     amountToApprove && currency
       ? CurrencyAmountV3.fromRawAmount(currency, amountToApprove)
       : undefined,
-    chainId
+    approvePermit2
+      ? PERMIT2_ADDRESS
+      : chainId
       ? bonusRouteFound
         ? SWAP_ROUTER_ADDRESS[chainId]
         : PARASWAP_PROXY_ROUTER_ADDRESS[chainId]
       : undefined,
     bonusRouteFound,
+    {
+      onApprove: (spender, amount) =>
+        liquidityHubAnalytics.onApproveRequest(spender, amount),
+      onApproveError: (error) => liquidityHubAnalytics.onApproveFailed(error),
+    },
   );
 }
+
+// todo change to permit2
