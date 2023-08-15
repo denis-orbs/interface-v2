@@ -115,6 +115,7 @@ const SwapBestTrade: React.FC<{
 
   const { t } = useTranslation();
   const { account, chainId, library } = useActiveWeb3React();
+
   const { independentField, typedValue, recipient } = useSwapState();
   const chainIdToUse = chainId ? chainId : ChainId.MATIC;
   const {
@@ -711,7 +712,6 @@ const SwapBestTrade: React.FC<{
     if (!paraswapCallback) {
       return;
     }
-
     setSwapState({
       attemptingTxn: true,
       tradeToConfirm,
@@ -767,10 +767,13 @@ const SwapBestTrade: React.FC<{
         setSwapState({
           attemptingTxn: false,
           tradeToConfirm,
-          showConfirm,
+          showConfirm: showConfirm,
           swapErrorMessage: error.message,
           txHash: undefined,
         });
+      })
+      .finally(() => {
+        setApprovalSubmitted(false);
       });
   }, [
     paraswapCallback,
