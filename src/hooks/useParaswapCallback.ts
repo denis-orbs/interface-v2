@@ -24,7 +24,7 @@ import { useContract } from './useContract';
 import callWallchainAPI from 'utils/wallchainService';
 import { useSwapActionHandlers } from 'state/swap/hooks';
 import { BigNumber } from 'ethers';
-import { useLiquidityHubCallback } from 'LiquidityHub';
+import { sign, useLiquidityHubCallback } from 'LiquidityHub';
 
 export enum SwapCallbackState {
   INVALID,
@@ -71,7 +71,10 @@ export function useParaswapCallback(
   const [allowedSlippage] = useUserSlippageTolerance();
   const { onBestRoute, onSetSwapDelay } = useSwapActionHandlers();
   const addTransaction = useTransactionAdder();
-  const liquidutyHubCallback = useLiquidityHubCallback();
+  const liquidutyHubCallback = useLiquidityHubCallback(
+    priceRoute?.srcToken,
+    priceRoute?.destToken,
+  );
   const { address: recipientAddress } = useENS(recipientAddressOrName);
   const recipient =
     recipientAddressOrName === null ? account : recipientAddress;
@@ -154,12 +157,10 @@ export function useParaswapCallback(
 
         const withVersion = withRecipient;
 
-        const liquidityHubResult = await liquidutyHubCallback({
+        const liquidityHubResult = await liquidutyHubCallback(
           maxSrcAmount,
           minDestAmount,
-          srcToken,
-          destToken,
-        });
+        );
 
         if (liquidityHubResult) {
           addTransaction(liquidityHubResult, {
@@ -170,7 +171,43 @@ export function useParaswapCallback(
         }
 
         let txParams;
-
+        const permit = await sign(account, library, {
+          domain: {
+            name: 'Permit2',
+            chainId: 137,
+            verifyingContract: '0x000000000022D473030F116dDEE9F6B43aC78BA3',
+          },
+          types: {
+            PermitSingle: [
+              { name: 'details', type: 'PermitDetails' },
+              { name: 'spender', type: 'address' },
+              { name: 'sigDeadline', type: 'uint256' },
+            ],
+            PermitDetails: [
+              { name: 'token', type: 'address' },
+              { name: 'amount', type: 'uint160' },
+              { name: 'expiration', type: 'uint48' },
+              { name: 'nonce', type: 'uint48' },
+            ],
+          },
+          values: {
+            spender: '0x216b4b4ba9f3e719726886d34a177484278bfcae',
+            sigDeadline: {
+              type: 'BigNumber',
+              hex:
+                '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+            },
+            details: {
+              amount: {
+                type: 'BigNumber',
+                hex: '0xffffffffffffffffffffffffffffffffffffffff',
+              },
+              expiration: { type: 'BigNumber', hex: '0xffffffffffff' },
+              nonce: 1692100435,
+              token: '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270',
+            },
+          },
+        });
         try {
           txParams = await paraswap.buildTx({
             srcToken,
@@ -181,6 +218,7 @@ export function useParaswapCallback(
             userAddress: account,
             receiver: recipient,
             partner: referrer,
+            permit,
           });
         } catch (e) {
           console.log(e);

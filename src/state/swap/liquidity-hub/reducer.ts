@@ -6,6 +6,7 @@ export interface LiquidityHubState {
   isLoading: boolean;
   isFailed?: boolean;
   amountOut?: string;
+  waitingForApproval?: boolean;
 }
 
 const initialState = {
