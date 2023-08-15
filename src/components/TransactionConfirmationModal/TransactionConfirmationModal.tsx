@@ -3,8 +3,8 @@ import React, { useMemo } from 'react';
 import { Box, Button } from '@material-ui/core';
 import { CustomModal } from 'components';
 import { ReactComponent as CloseIcon } from 'assets/images/CloseIcon.svg';
-import { ReactComponent as TransactionFailed } from 'assets/images/TransactionFailed.svg';
-import { ReactComponent as TransactionSuccess } from 'assets/images/TransactionSuccess.svg';
+import TransactionFailed from 'assets/images/TransactionFailed.png';
+import TransactionSubmitted from 'assets/images/TransactionSubmitted.png';
 import { getEtherscanLink } from 'utils';
 import { useActiveWeb3React } from 'hooks';
 import ModalBg from 'assets/images/ModalBG.svg';
@@ -13,6 +13,7 @@ import 'components/styles/TransactionConfirmationModal.scss';
 import { useTranslation } from 'react-i18next';
 import { LiquidityHubConfirmationModalContent } from 'LiquidityHub';
 import { useLiquidityHubState } from 'state/swap/liquidity-hub/hooks';
+import { CheckCircleOutline } from '@material-ui/icons';
 
 interface ConfirmationPendingContentProps {
   onDismiss: () => void;
@@ -104,14 +105,15 @@ export const TransactionSubmittedContent: React.FC<TransactionSubmittedContentPr
         <h5>{txPending ? t('txSubmitted') : t('txCompleted')}</h5>
         <CloseIcon onClick={onDismiss} />
       </Box>
-      {!txPending && (
-        <Box mt={8} className='flex justify-center'>
-          <TransactionSuccess />
-        </Box>
-      )}
-      <Box className='txModalContent'>
-        <p>{modalContent}</p>
-        <LiquidityHubConfirmationModalContent txPending={txPending} />
+      <Box mt={8} className='flex justify-center'>
+        <img src={TransactionSubmitted} alt='Transaction Submitted' />
+      </Box>
+      <Box className='txModalContent txModalContentSuccess'>
+        <p>
+          {!txPending && <CheckCircleOutline />}
+          {modalContent}
+          <LiquidityHubConfirmationModalContent txPending={txPending} />
+        </p>
       </Box>
       <Box className='flex justify-between' mt={2}>
         {chainId && hash && (
@@ -121,9 +123,7 @@ export const TransactionSubmittedContent: React.FC<TransactionSubmittedContentPr
             rel='noopener noreferrer'
             style={{ width: '48%', textDecoration: 'none' }}
           >
-            <Button className='txSubmitButton'>
-              {t('viewonBlockExplorer')}
-            </Button>
+            <Button className='txSubmitButton'>{t('viewTx')}</Button>
           </a>
         )}
         <Button
@@ -160,22 +160,6 @@ export const ConfirmationModalContent: React.FC<ConfirmationModalContentProps> =
   );
 };
 
-export const ConfirmationModalContentV3: React.FC<ConfirmationModalContentProps> = ({
-  title,
-  onDismiss,
-  content,
-}) => {
-  return (
-    <Box padding={4}>
-      <Box className='flex justify-between items-center'>
-        <p>{title}</p>
-        <CloseIcon onClick={onDismiss} />
-      </Box>
-      {content()}
-    </Box>
-  );
-};
-
 interface TransactionErrorContentProps {
   message: string;
   onDismiss: () => void;
@@ -194,12 +178,12 @@ export const TransactionErrorContent: React.FC<TransactionErrorContentProps> = (
           <CloseIcon onClick={onDismiss} />
         </Box>
         <Box className='txModalContent'>
-          <TransactionFailed />
+          <img src={TransactionFailed} alt='Transaction Failed' />
           <p>{message}</p>
         </Box>
       </Box>
       <Button className='txSubmitButton' onClick={onDismiss}>
-        {t('dismiss')}
+        {t('close')}
       </Button>
     </Box>
   );
@@ -234,7 +218,11 @@ const TransactionConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
   // confirmation screen
   return (
-    <CustomModal open={isOpen} onClose={onDismiss} modalWrapper={modalWrapper}>
+    <CustomModal
+      open={isOpen}
+      onClose={onDismiss}
+      modalWrapper={`${modalWrapper} txModalWrapper`}
+    >
       <img src={ModalBg} alt='Modal Back' className='txModalBG' />
       <Box position='relative' zIndex={2}>
         {attemptingTxn ? (

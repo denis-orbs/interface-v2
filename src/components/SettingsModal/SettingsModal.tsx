@@ -16,6 +16,7 @@ import {
   useBonusRouterManager,
   useSlippageManuallySet,
   useLiquidityHubManager,
+  useUserSingleHopOnly,
 } from 'state/user/hooks';
 import { ReactComponent as CloseIcon } from 'assets/images/CloseIcon.svg';
 import 'components/styles/SettingsModal.scss';
@@ -55,6 +56,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     liquidityHubDisabled,
     toggleLiquidityHubDisabled,
   ] = useLiquidityHubManager();
+  const [singleHopOnly, setSingleHopOnly] = useUserSingleHopOnly();
   const [slippageInput, setSlippageInput] = useState('');
   const [deadlineInput, setDeadlineInput] = useState('');
   const [expertConfirm, setExpertConfirm] = useState(false);
@@ -315,6 +317,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
           <ToggleSwitch
             toggled={liquidityHubDisabled}
             onToggle={toggleLiquidityHubDisabled}
+          />
+        </Box>
+        <Divider />
+        <Box className='flex items-center'>
+          <p style={{ marginRight: 6 }}>{t('singleRouteOnly')}</p>
+          <ToggleSwitch
+            toggled={singleHopOnly}
+            onToggle={() => setSingleHopOnly(!singleHopOnly)}
           />
         </Box>
         <Divider />

@@ -370,7 +370,6 @@ export function useUserSingleHopOnly(): [
   >((state) => {
     return state.user.userSingleHopOnly;
   });
-  // const singleHopOnly = useAppSelector((state) => state.user.userSingleHopOnly);
 
   const setSingleHopOnly = useCallback(
     (newSingleHopOnly: boolean) => {
