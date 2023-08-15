@@ -20,6 +20,7 @@ import {
   updateUserBonusRouter,
   updateSlippageManuallySet,
   updateSelectedWallet,
+  updateUserLiquidityHub,
 } from './actions';
 import {
   V2_BASES_TO_TRACK_LIQUIDITY_FOR,
@@ -114,6 +115,26 @@ export function useBonusRouterManager(): [boolean, () => void] {
   }, [bonusRouterDisabled, dispatch]);
 
   return [bonusRouterDisabled, toggleSetBonusRouter];
+}
+
+export function useLiquidityHubManager(): [boolean, () => void] {
+  const dispatch = useDispatch<AppDispatch>();
+  const userLiquidityHubDisabled = useSelector<
+    AppState,
+    AppState['user']['userLiquidityHubDisabled']
+  >((state) => {
+    return state.user.userLiquidityHubDisabled;
+  });
+
+  const toggleSetLiquidityHub = useCallback(() => {
+    dispatch(
+      updateUserLiquidityHub({
+        userLiquidityHubDisabled: !userLiquidityHubDisabled,
+      }),
+    );
+  }, [userLiquidityHubDisabled, dispatch]);
+
+  return [userLiquidityHubDisabled, toggleSetLiquidityHub];
 }
 
 export function useUserSlippageTolerance(): [

@@ -18,6 +18,7 @@ import {
   updateUserBonusRouter,
   updateSlippageManuallySet,
   updateSelectedWallet,
+  updateUserLiquidityHub,
 } from './actions';
 import { ConnectionType } from 'connectors';
 
@@ -32,7 +33,7 @@ export interface UserState {
 
   userExpertMode: boolean;
   userBonusRouterDisabled: boolean;
-
+  userLiquidityHubDisabled: boolean;
   // user defined slippage tolerance in bips, used in all txns
   userSlippageTolerance: number;
   slippageManuallySet: boolean;
@@ -69,6 +70,7 @@ export const initialState: UserState = {
   matchesDarkMode: false,
   userExpertMode: false,
   userBonusRouterDisabled: false,
+  userLiquidityHubDisabled: false,
   userSlippageTolerance: GlobalConst.utils.INITIAL_ALLOWED_SLIPPAGE,
   slippageManuallySet: false,
   userDeadline: GlobalConst.utils.DEFAULT_DEADLINE_FROM_NOW,
@@ -166,6 +168,9 @@ export default createReducer(initialState, (builder) =>
     })
     .addCase(updateUserBonusRouter, (state, action) => {
       state.userBonusRouterDisabled = action.payload.userBonusRouterDisabled;
+    })
+    .addCase(updateUserLiquidityHub, (state, action) => {
+      state.userLiquidityHubDisabled = action.payload.userLiquidityHubDisabled;
     })
     .addCase(updateSlippageManuallySet, (state, action) => {
       state.slippageManuallySet = action.payload.slippageManuallySet;

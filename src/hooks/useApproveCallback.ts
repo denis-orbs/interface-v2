@@ -31,6 +31,7 @@ import {
 } from 'constants/v3/addresses';
 import { OptimalRate } from '@paraswap/sdk';
 import { ONE } from 'v3lib/utils';
+import { permit2Address } from '@defi.org/web3-candies';
 
 export enum ApprovalState {
   UNKNOWN,
@@ -230,7 +231,6 @@ export function useApproveCallbackV3(
           amountToApprove.quotient.toString(),
         );
       });
-
     return tokenContract
       .approve(
         spender,
@@ -318,3 +318,5 @@ export function useApproveCallbackFromBestTrade(
     bonusRouteFound,
   );
 }
+
+// todo change to permit2
