@@ -97,7 +97,6 @@ export const useLiquidityHubCallback = (
         waitingForApproval: false,
       });
     } catch (error) {
-      console.log(error);
       onResetLiquidityHubState();
       return undefined;
     }
@@ -150,7 +149,6 @@ const useApprove = (srcToken?: string) => {
   return async (srcAmount: string, onApproveRequest: () => void) => {
     try {
       const allowance = await tokenContract?.allowance(account, permit2Address);
-      console.log(allowance.toString(), srcAmount);
 
       if (BN(allowance.toString()).gte(BN(srcAmount))) {
         liquidityHubAnalytics.onTokenApproved();
@@ -295,12 +293,9 @@ function delay(ms: number) {
 
 async function waitForTx(txHash: string, library: any) {
   for (let i = 0; i < 60; ++i) {
-    console.log('waitForTx', txHash, i);
-
     await delay(1500);
     const tx = await library.getTransaction(txHash);
     if (tx && tx instanceof Object && tx.blockNumber) {
-      console.log(tx);
       return tx;
     }
   }
