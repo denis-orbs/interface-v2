@@ -71,7 +71,10 @@ export function useParaswapCallback(
   const [allowedSlippage] = useUserSlippageTolerance();
   const { onBestRoute, onSetSwapDelay } = useSwapActionHandlers();
   const addTransaction = useTransactionAdder();
-  const liquidutyHubCallback = useLiquidityHubCallback();
+  const liquidutyHubCallback = useLiquidityHubCallback(
+    priceRoute?.srcToken,
+    priceRoute?.destToken,
+  );
   const { address: recipientAddress } = useENS(recipientAddressOrName);
   const recipient =
     recipientAddressOrName === null ? account : recipientAddress;
@@ -154,12 +157,10 @@ export function useParaswapCallback(
 
         const withVersion = withRecipient;
 
-        const liquidityHubResult = await liquidutyHubCallback({
+        const liquidityHubResult = await liquidutyHubCallback(
           maxSrcAmount,
           minDestAmount,
-          srcToken,
-          destToken,
-        });
+        );
 
         if (liquidityHubResult) {
           addTransaction(liquidityHubResult, {

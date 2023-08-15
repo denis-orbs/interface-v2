@@ -646,7 +646,6 @@ const SwapBestTrade: React.FC<{
   });
 
   useLiquidityHubAnalyticsListeners(
-    approval,
     showConfirm,
     attemptingTxn,
     currencies[Field.INPUT],
@@ -765,12 +764,11 @@ const SwapBestTrade: React.FC<{
         }
       })
       .catch((error) => {
-        const liquidityHubError = error.message === t('liquidityHubFailed');
         setSwapState({
           attemptingTxn: false,
           tradeToConfirm,
-          showConfirm: liquidityHubError ? false : showConfirm,
-          swapErrorMessage: liquidityHubError ? undefined : error.message,
+          showConfirm: showConfirm,
+          swapErrorMessage: error.message,
           txHash: undefined,
         });
       })
@@ -787,7 +785,6 @@ const SwapBestTrade: React.FC<{
     account,
     inputCurrency?.symbol,
     outputCurrency?.symbol,
-    t,
   ]);
 
   const paraRate = optimalRate

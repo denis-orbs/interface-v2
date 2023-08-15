@@ -1,6 +1,6 @@
 import { useAppSelector } from 'state/hooks';
 import { AppState, useAppDispatch } from 'state';
-import { setLiquidityHubState } from './actions';
+import { resetLiquidityHubState, setLiquidityHubState } from './actions';
 import { LiquidityHubState } from './reducer';
 import { useCallback } from 'react';
 
@@ -20,7 +20,12 @@ export const useLiquidityHubActionHandlers = () => {
     [dispatch],
   );
 
+  const onResetLiquidityHubState = useCallback(() => {
+    dispatch(resetLiquidityHubState());
+  }, [dispatch]);
+
   return {
     onSetLiquidityHubState,
+    onResetLiquidityHubState,
   };
 };

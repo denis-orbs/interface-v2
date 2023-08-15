@@ -709,5 +709,6 @@
   "seekingBestPrice": "Seeking Best Price",
   "optimizedRouteAvailable": "Optimized Route Available",
   "signToPerformGaslessSwap": "Sign to perform gasless swap.",
-  "liquidityHubFailed": "Liquidity Hub failed"
+  "liquidityHubFailed": "Liquidity Hub failed",
+  "awaitingApproval": "Awaiting Approval"
 }

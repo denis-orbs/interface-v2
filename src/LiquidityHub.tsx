@@ -10,43 +10,50 @@ import { useLocation } from 'react-router-dom';
 import { styled } from '@material-ui/styles';
 import { Box } from '@material-ui/core';
 import OrbsLogo from 'assets/images/orbs-logo.svg';
-import { setWeb3Instance, signEIP712 } from '@defi.org/web3-candies';
+import {
+  setWeb3Instance,
+  signEIP712,
+  maxUint256,
+  permit2Address,
+  hasWeb3Instance,
+} from '@defi.org/web3-candies';
 import { useTranslation } from 'react-i18next';
 import {
   useLiquidityHubActionHandlers,
   useLiquidityHubState,
 } from 'state/swap/liquidity-hub/hooks';
-import { ApprovalState } from 'hooks/useApproveCallback';
+import { useTokenContract } from 'hooks/useContract';
 const API_ENDPOINT = 'https://hub.orbs.network';
-export const PERMIT2_ADDRESS = '0x000000000022d473030f116ddee9f6b43ac78ba3';
 const WEBSITE = 'https://www.orbs.com';
 
-export const useLiquidityHubCallback = () => {
+export const useLiquidityHubCallback = (
+  srcToken?: string,
+  destToken?: string,
+) => {
   const [liquidityHubDisabled] = useLiquidityHubManager();
   const { account, library } = useActiveWeb3React();
   const liquidityHubState = useLiquidityHubState();
-  const { onSetLiquidityHubState } = useLiquidityHubActionHandlers();
-  const { t } = useTranslation();
+  const {
+    onSetLiquidityHubState,
+    onResetLiquidityHubState,
+  } = useLiquidityHubActionHandlers();
+  const [userSlippageTolerance] = useUserSlippageTolerance();
+  const location = useLocation();
   const {
     forceParaswapTrade,
     forceLiquidityHubTrade,
   } = useForceTradeFromQueryParam();
+  const approve = useApprove(srcToken);
 
-  return async ({
-    destToken,
-    maxSrcAmount,
-    srcToken,
-    minDestAmount,
-  }: {
-    minDestAmount: string;
-    maxSrcAmount: string;
-    srcToken: string;
-    destToken: string;
-  }) => {
+  return async (srcAmount?: string, minDestAmount?: string) => {
     if (liquidityHubDisabled) {
       liquidityHubAnalytics.onDisabled();
     }
     if (
+      !minDestAmount ||
+      !destToken ||
+      !srcAmount ||
+      !srcToken ||
       liquidityHubDisabled ||
       !library ||
       !account ||
@@ -62,31 +69,59 @@ export const useLiquidityHubCallback = () => {
       amountOut: undefined,
     });
 
-    try {
-      const { permitData, serializedOrder, callData, outAmount } = await quote({
-        destToken,
-        maxSrcAmount,
-        srcToken,
-        minDestAmount,
-        account,
-        forceLiquidityHubTrade,
-      });
+    const quoteArgs = {
+      destToken,
+      srcAmount,
+      srcToken,
+      minDestAmount,
+      account,
+      forceLiquidityHubTrade,
+      slippage: userSlippageTolerance / 100,
+      qs: encodeURIComponent(location.search),
+    };
 
+    try {
+      const res = await quote(quoteArgs);
       onSetLiquidityHubState({
         liquidityHubTrade: true,
         isLoading: false,
+        amountOut: res.outAmount,
+      });
+
+      await approve(srcAmount, () => {
+        onSetLiquidityHubState({
+          waitingForApproval: true,
+        });
+      });
+      onSetLiquidityHubState({
+        waitingForApproval: false,
+      });
+    } catch (error) {
+      console.log(error);
+      onResetLiquidityHubState();
+      return undefined;
+    }
+
+    try {
+      const quoteResult = await quote(quoteArgs);
+      const { outAmount, permitData } = quoteResult;
+
+      onSetLiquidityHubState({
         amountOut: outAmount,
+        waitingForSignature: true,
       });
       const signature = await sign(account, library, permitData);
+      onSetLiquidityHubState({
+        waitingForSignature: false,
+      });
       const txHash = await swap({
         account,
         srcToken,
         destToken,
-        maxSrcAmount,
+        srcAmount,
         minDestAmount,
         signature,
-        serializedOrder,
-        callData,
+        ...quoteResult,
       });
       const tx = await waitForTx(txHash, library);
       if (!tx) {
@@ -95,13 +130,11 @@ export const useLiquidityHubCallback = () => {
 
       return tx;
     } catch (error) {
+      onResetLiquidityHubState();
       onSetLiquidityHubState({
-        liquidityHubTrade: false,
         isFailed: true,
-        isLoading: false,
-        amountOut: undefined,
       });
-      throw new Error(t('liquidityHubFailed'));
+      return undefined;
     } finally {
       onSetLiquidityHubState({
         isLoading: false,
@@ -110,10 +143,38 @@ export const useLiquidityHubCallback = () => {
   };
 };
 
+const useApprove = (srcToken?: string) => {
+  const tokenContract = useTokenContract(srcToken);
+  const { account } = useActiveWeb3React();
+
+  return async (srcAmount: string, onApproveRequest: () => void) => {
+    try {
+      const allowance = await tokenContract?.allowance(account, permit2Address);
+      console.log(allowance.toString(), srcAmount);
+
+      if (BN(allowance.toString()).gte(BN(srcAmount))) {
+        liquidityHubAnalytics.onTokenApproved();
+        return;
+      }
+      onApproveRequest();
+      liquidityHubAnalytics.onApproveRequest();
+      await tokenContract?.approve(permit2Address, maxUint256, {
+        gasLimit: 100_000,
+      });
+      liquidityHubAnalytics.onTokenApproved();
+    } catch (error) {
+      liquidityHubAnalytics.onApproveFailed(error.message);
+      throw new Error(error.message);
+    }
+  };
+};
+
 const sign = async (account: string, library: any, permitData: any) => {
   try {
     liquidityHubAnalytics.onSignatureRequest();
-    setWeb3Instance(new Web3(library.provider as any));
+    if (!hasWeb3Instance()) {
+      setWeb3Instance(new Web3(library.provider as any));
+    }
     const signature = await signEIP712(account, permitData);
     liquidityHubAnalytics.onSignatureSuccess(signature);
     return signature;
@@ -127,7 +188,7 @@ const swap = async (args: {
   account: string;
   srcToken: string;
   destToken: string;
-  maxSrcAmount: string;
+  srcAmount: string;
   minDestAmount: string;
   signature: string;
   serializedOrder: string;
@@ -141,7 +202,7 @@ const swap = async (args: {
       body: JSON.stringify({
         inToken: args.srcToken,
         outToken: args.destToken,
-        inAmount: args.maxSrcAmount,
+        inAmount: args.srcAmount,
         outAmount: args.minDestAmount,
         user: args.account,
         signature: args.signature,
@@ -164,18 +225,20 @@ const swap = async (args: {
 
 const quote = async ({
   destToken,
-  maxSrcAmount,
+  srcAmount,
   srcToken,
   minDestAmount,
   account,
   forceLiquidityHubTrade,
+  slippage,
 }: {
   minDestAmount: string;
-  maxSrcAmount: string;
+  srcAmount: string;
   srcToken: string;
   destToken: string;
   account: string;
   forceLiquidityHubTrade: boolean;
+  slippage: number;
 }) => {
   try {
     liquidityHubAnalytics.onQuoteRequest(minDestAmount);
@@ -185,9 +248,10 @@ const quote = async ({
       body: JSON.stringify({
         inToken: srcToken,
         outToken: destToken,
-        inAmount: maxSrcAmount,
+        inAmount: srcAmount,
         outAmount: minDestAmount,
         user: account,
+        slippage,
       }),
     });
     const result = await response.json();
@@ -418,7 +482,6 @@ class LiquidityHubAnalytics {
   history: State[] = [];
   initialTimestamp = Date.now();
   data = { _id: crypto.randomUUID() } as LiquidityHubAnalyticsData;
-  //counter
 
   private update({
     newState,
@@ -487,12 +550,10 @@ class LiquidityHubAnalytics {
     });
   }
 
-  onApproveRequest(approvalSpender: string, approvalAmount: string) {
+  onApproveRequest() {
     this.update({
       newState: 'approveRequest',
       values: {
-        approvalSpender,
-        approvalAmount,
         approveFailedError: '',
       },
     });
@@ -610,7 +671,6 @@ class LiquidityHubAnalytics {
 export const liquidityHubAnalytics = new LiquidityHubAnalytics();
 
 export const useLiquidityHubAnalyticsListeners = (
-  approval: ApprovalState,
   showConfirm: boolean,
   attemptingTxn: boolean,
   srcToken?: any,
@@ -644,12 +704,6 @@ export const useLiquidityHubAnalyticsListeners = (
   useEffect(() => {
     liquidityHubAnalytics.onPageLoaded();
   }, []);
-
-  useEffect(() => {
-    if (approval === ApprovalState.APPROVED) {
-      liquidityHubAnalytics.onTokenApproved();
-    }
-  }, [approval]);
 
   useEffect(() => {
     liquidityHubAnalytics.onSrcToken(srcToken?.address, srcToken?.symbol);

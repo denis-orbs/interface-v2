@@ -23,6 +23,13 @@ export const useConfirmationPendingContent = (pendingText?: string) => {
   const { t } = useTranslation();
   const liquidityHubState = useLiquidityHubState();
   return useMemo(() => {
+    if (liquidityHubState?.waitingForApproval) {
+      return {
+        title: t('optimizedRouteAvailable'),
+        pending: pendingText,
+        confirm: t('awaitingApproval'),
+      };
+    }
     if (liquidityHubState?.isLoading) {
       return {
         title: t('seekingBestPrice'),
@@ -32,7 +39,9 @@ export const useConfirmationPendingContent = (pendingText?: string) => {
       return {
         title: t('optimizedRouteAvailable'),
         pending: pendingText,
-        confirm: t('signToPerformGaslessSwap'),
+        confirm:
+          liquidityHubState.waitingForSignature &&
+          t('signToPerformGaslessSwap'),
       };
     }
     return {
@@ -45,6 +54,8 @@ export const useConfirmationPendingContent = (pendingText?: string) => {
     liquidityHubState?.liquidityHubTrade,
     pendingText,
     t,
+    liquidityHubState?.waitingForApproval,
+    liquidityHubState.waitingForSignature,
   ]);
 };
 
@@ -65,7 +76,7 @@ export const ConfirmationPendingContent: React.FC<ConfirmationPendingContentProp
         </Box>
         <h5>{texts.title}</h5>
         {texts.pending && <p>{texts.pending}</p>}
-        <p>{texts.confirm}</p>
+        <p>{texts.confirm || ''}</p>
       </Box>
     </Box>
   );
