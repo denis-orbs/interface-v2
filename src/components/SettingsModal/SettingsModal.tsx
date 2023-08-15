@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Box, Divider } from '@material-ui/core';
+import { Box, Divider, styled } from '@material-ui/core';
 import { KeyboardArrowDown } from '@material-ui/icons';
 import { AlertTriangle } from 'react-feather';
 import {
@@ -15,10 +15,12 @@ import {
   useUserSlippageTolerance,
   useBonusRouterManager,
   useSlippageManuallySet,
+  useLiquidityHubManager,
 } from 'state/user/hooks';
 import { ReactComponent as CloseIcon } from 'assets/images/CloseIcon.svg';
 import 'components/styles/SettingsModal.scss';
 import { useTranslation } from 'react-i18next';
+import { LiquidityHubTxSettings } from 'LiquidityHub';
 
 enum SlippageError {
   InvalidInput = 'InvalidInput',
@@ -49,6 +51,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   const { onChangeRecipient } = useSwapActionHandlers();
   const [expertMode, toggleExpertMode] = useExpertModeManager();
   const [bonusRouterDisabled, toggleSetBonusRouter] = useBonusRouterManager();
+  const [
+    liquidityHubDisabled,
+    toggleLiquidityHubDisabled,
+  ] = useLiquidityHubManager();
   const [slippageInput, setSlippageInput] = useState('');
   const [deadlineInput, setDeadlineInput] = useState('');
   const [expertConfirm, setExpertConfirm] = useState(false);
@@ -301,6 +307,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
           <ToggleSwitch
             toggled={bonusRouterDisabled}
             onToggle={toggleSetBonusRouter}
+          />
+        </Box>
+        <Divider />
+        <Box my={2.5} className='flex items-center justify-between'>
+          <LiquidityHubTxSettings />
+          <ToggleSwitch
+            toggled={liquidityHubDisabled}
+            onToggle={toggleLiquidityHubDisabled}
           />
         </Box>
         <Divider />

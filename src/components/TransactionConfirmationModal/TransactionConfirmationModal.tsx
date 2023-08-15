@@ -1,5 +1,5 @@
 import { ChainId } from '@uniswap/sdk';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Box, Button } from '@material-ui/core';
 import { CustomModal } from 'components';
 import { ReactComponent as CloseIcon } from 'assets/images/CloseIcon.svg';
@@ -11,17 +11,60 @@ import ModalBg from 'assets/images/ModalBG.svg';
 import SpinnerImage from '../../assets/images/spinner.svg';
 import 'components/styles/TransactionConfirmationModal.scss';
 import { useTranslation } from 'react-i18next';
+import { LiquidityHubConfirmationModalContent } from 'LiquidityHub';
+import { useLiquidityHubState } from 'state/swap/liquidity-hub/hooks';
 
 interface ConfirmationPendingContentProps {
   onDismiss: () => void;
   pendingText?: string;
 }
 
+export const useConfirmationPendingContent = (pendingText?: string) => {
+  const { t } = useTranslation();
+  const liquidityHubState = useLiquidityHubState();
+  return useMemo(() => {
+    if (liquidityHubState?.waitingForApproval) {
+      return {
+        title: t('optimizedRouteAvailable'),
+        pending: pendingText,
+        confirm: t('awaitingApproval'),
+      };
+    }
+    if (liquidityHubState?.isLoading) {
+      return {
+        title: t('seekingBestPrice'),
+      };
+    }
+    if (liquidityHubState?.liquidityHubTrade) {
+      return {
+        title: t('optimizedRouteAvailable'),
+        pending: pendingText,
+        confirm:
+          liquidityHubState.waitingForSignature &&
+          t('signToPerformGaslessSwap'),
+      };
+    }
+    return {
+      title: t('waitingConfirm'),
+      pending: pendingText,
+      confirm: t('confirmTxinWallet'),
+    };
+  }, [
+    liquidityHubState?.isLoading,
+    liquidityHubState?.liquidityHubTrade,
+    pendingText,
+    t,
+    liquidityHubState?.waitingForApproval,
+    liquidityHubState.waitingForSignature,
+  ]);
+};
+
 export const ConfirmationPendingContent: React.FC<ConfirmationPendingContentProps> = ({
   onDismiss,
   pendingText,
 }) => {
-  const { t } = useTranslation();
+  const texts = useConfirmationPendingContent(pendingText);
+
   return (
     <Box padding={4} overflow='hidden'>
       <Box className='txModalHeader'>
@@ -31,9 +74,9 @@ export const ConfirmationPendingContent: React.FC<ConfirmationPendingContentProp
         <Box my={4} className='flex justify-center spinner'>
           <img src={SpinnerImage} alt='Spinner' />
         </Box>
-        <h5>{t('waitingConfirm')}</h5>
-        {pendingText && <p>{pendingText}</p>}
-        <p>{t('confirmTxinWallet')}</p>
+        <h5>{texts.title}</h5>
+        {texts.pending && <p>{texts.pending}</p>}
+        <p>{texts.confirm || ''}</p>
       </Box>
     </Box>
   );
@@ -68,6 +111,7 @@ export const TransactionSubmittedContent: React.FC<TransactionSubmittedContentPr
       )}
       <Box className='txModalContent'>
         <p>{modalContent}</p>
+        <LiquidityHubConfirmationModalContent txPending={txPending} />
       </Box>
       <Box className='flex justify-between' mt={2}>
         {chainId && hash && (

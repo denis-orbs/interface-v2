@@ -24,6 +24,7 @@ import { useContract } from './useContract';
 import callWallchainAPI from 'utils/wallchainService';
 import { useSwapActionHandlers } from 'state/swap/hooks';
 import { BigNumber } from 'ethers';
+import { useLiquidityHubCallback } from 'LiquidityHub';
 
 export enum SwapCallbackState {
   INVALID,
@@ -59,16 +60,21 @@ export function useParaswapCallback(
   state: SwapCallbackState;
   callback:
     | null
-    | (() => Promise<{ response: TransactionResponse; summary: string }>);
+    | (() => Promise<{
+        response: TransactionResponse;
+        summary: string;
+      }>);
   error: string | null;
 } {
   const { account, chainId, library } = useActiveWeb3React();
   const paraswap = useParaswap();
   const [allowedSlippage] = useUserSlippageTolerance();
   const { onBestRoute, onSetSwapDelay } = useSwapActionHandlers();
-
   const addTransaction = useTransactionAdder();
-
+  const liquidutyHubCallback = useLiquidityHubCallback(
+    priceRoute?.srcToken,
+    priceRoute?.destToken,
+  );
   const { address: recipientAddress } = useENS(recipientAddressOrName);
   const recipient =
     recipientAddressOrName === null ? account : recipientAddress;
@@ -127,6 +133,42 @@ export function useParaswapCallback(
                 .div(BigNumber.from(10000))
                 .toString()
             : priceRoute.srcAmount;
+
+        const inputSymbol = inputCurrency?.symbol;
+        const outputSymbol = outputCurrency?.symbol;
+        const inputAmount =
+          Number(priceRoute.srcAmount) / 10 ** priceRoute.srcDecimals;
+        const outputAmount =
+          Number(priceRoute.destAmount) / 10 ** priceRoute.destDecimals;
+
+        const base = `Swap ${inputAmount.toLocaleString(
+          'us',
+        )} ${inputSymbol} for ${outputAmount.toLocaleString(
+          'us',
+        )} ${outputSymbol}`;
+        const withRecipient =
+          recipient === account
+            ? base
+            : `${base} to ${
+                recipientAddressOrName && isAddress(recipientAddressOrName)
+                  ? shortenAddress(recipientAddressOrName)
+                  : recipientAddressOrName
+              }`;
+
+        const withVersion = withRecipient;
+
+        const liquidityHubResult = await liquidutyHubCallback(
+          maxSrcAmount,
+          minDestAmount,
+        );
+
+        if (liquidityHubResult) {
+          addTransaction(liquidityHubResult, {
+            summary: withVersion,
+          });
+
+          return { response: liquidityHubResult, summary: withVersion };
+        }
 
         let txParams;
 
@@ -187,28 +229,6 @@ export function useParaswapCallback(
 
         try {
           const response = await signer.sendTransaction(ethersTxParams);
-          const inputSymbol = inputCurrency?.symbol;
-          const outputSymbol = outputCurrency?.symbol;
-          const inputAmount =
-            Number(priceRoute.srcAmount) / 10 ** priceRoute.srcDecimals;
-          const outputAmount =
-            Number(priceRoute.destAmount) / 10 ** priceRoute.destDecimals;
-
-          const base = `Swap ${inputAmount.toLocaleString(
-            'us',
-          )} ${inputSymbol} for ${outputAmount.toLocaleString(
-            'us',
-          )} ${outputSymbol}`;
-          const withRecipient =
-            recipient === account
-              ? base
-              : `${base} to ${
-                  recipientAddressOrName && isAddress(recipientAddressOrName)
-                    ? shortenAddress(recipientAddressOrName)
-                    : recipientAddressOrName
-                }`;
-
-          const withVersion = withRecipient;
 
           addTransaction(response, {
             summary: withVersion,
@@ -240,5 +260,6 @@ export function useParaswapCallback(
     inputCurrency,
     outputCurrency,
     allowedSlippage,
+    liquidutyHubCallback,
   ]);
 }
